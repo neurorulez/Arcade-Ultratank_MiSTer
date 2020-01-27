@@ -10,8 +10,11 @@ The original Ultratank was B&W, but has three signal of colors form the image ge
 I generate the colors from that tree signals mixing it in rgb form. You can select it in OSD.
 
 There are 3 modes to change the gameplay in the OSD:
+
 Visible or invisible tanks (Only make visible when fire)
+
 Rebouncing fire or Remote control Fire
+
 Barriers or open field.
 
 # Keyboard inputs :
