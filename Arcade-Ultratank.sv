@@ -69,12 +69,18 @@ module emu
 	// 1 - D-/TX
 	// 2..6 - USR2..USR6
 	// Set USER_OUT to 1 to read from USER_IN.
-	input   [6:0] USER_IN,
-	output  [6:0] USER_OUT
+    output	      USER_MODE,	
+	input   [7:0] USER_IN,
+	output  [7:0] USER_OUT
 );
 
 assign VGA_F1    = 0;
-assign USER_OUT  = '1;
+
+wire   joy_split, joy_mdsel;
+wire   [5:0] joy_in = {USER_IN[6],USER_IN[3],USER_IN[5],USER_IN[7],USER_IN[1],USER_IN[2]};
+assign USER_OUT  = |status[31:30] ? {3'b111,joy_split,3'b111,joy_mdsel} : '1;
+assign USER_MODE = |status[31:30] ;
+
 assign LED_USER  = ioctl_download;
 assign LED_DISK  = lamp2;
 assign LED_POWER = lamp1;
@@ -88,6 +94,7 @@ localparam CONF_STR = {
 	"A.ULTRATNK;;",
 	"O1,Aspect Ratio,Original,Wide;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",  
+	"OUV,Serial SNAC DB9 Sega,Off,1 Player,2 Players;",
 	"-;",
 	"O89,Extended Play,none,25pts,50pts,75pts;",
 	"OAB,Game time,150 Sec,120 Sec,90 Sec,60 Sec;",
@@ -115,8 +122,21 @@ wire        forced_scandoubler;
 wire [21:0] gamma_bus;
 wire [10:0] ps2_key;
 
-wire [15:0] joy1, joy2;
+wire [15:0] joy1_USB, joy2_USB;
 
+wire [15:0] joy1 = |status[31:30] ? {joydb9md_1[9],joydb9md_1[7],joydb9md_1[8],joydb9md_1[4:0]} : joy1_USB;
+wire [15:0] joy2 =  status[31]    ? {joydb9md_2[9],joydb9md_2[8],joydb9md_2[7],joydb9md_2[4:0]} : status[30] ? joy1_USB : joy2_USB;
+
+reg [15:0] joydb9md_1,joydb9md_2;
+joy_db9md joy_db9md
+(
+  .clk       ( clk_sys    ), //35-50MHz
+  .joy_split ( joy_split  ),
+  .joy_mdsel ( joy_mdsel  ),
+  .joy_in    ( joy_in     ),
+  .joystick1 ( joydb9md_1 ),
+  .joystick2 ( joydb9md_2 )	  
+);
 
 hps_io #(.STRLEN(($size(CONF_STR)>>3) )) hps_io
 (
@@ -136,8 +156,8 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3) )) hps_io
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_data),
 	
-	.joystick_0(joy1),
-	.joystick_1(joy2),
+	.joystick_0(joy1_USB),
+	.joystick_1(joy2_USB),
 	.ps2_key(ps2_key)
 );
 

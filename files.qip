@@ -16,4 +16,4 @@ set_global_assignment -name VHDL_FILE src/cpu_mem.vhd
 set_global_assignment -name VHDL_FILE src/collision.vhd
 set_global_assignment -name VHDL_FILE src/dpram.vhd
 set_global_assignment -name VHDL_FILE src/spram.vhd
-
+set_global_assignment -name VERILOG_FILE src/joydb9md.v
