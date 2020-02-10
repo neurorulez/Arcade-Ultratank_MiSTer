@@ -94,7 +94,7 @@ localparam CONF_STR = {
 	"A.ULTRATNK;;",
 	"O1,Aspect Ratio,Original,Wide;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",  
-	"OUV,Serial SNAC DB9 Sega,Off,1 Player,2 Players;",
+	"OUV,Serial SNAC DB9MD,Off,1 Player,2 Players;",
 	"-;",
 	"O89,Extended Play,none,25pts,50pts,75pts;",
 	"OAB,Game time,150 Sec,120 Sec,90 Sec,60 Sec;",
@@ -124,13 +124,13 @@ wire [10:0] ps2_key;
 
 wire [15:0] joy1_USB, joy2_USB;
 
-wire [15:0] joy1 = |status[31:30] ? {joydb9md_1[9],joydb9md_1[7],joydb9md_1[8],joydb9md_1[4:0]} : joy1_USB;
-wire [15:0] joy2 =  status[31]    ? {joydb9md_2[9],joydb9md_2[8],joydb9md_2[7],joydb9md_2[4:0]} : status[30] ? joy1_USB : joy2_USB;
+wire [15:0] joy1 = |status[31:30] ? {joydb9md_1[9],joydb9md_1[8],joydb9md_1[7],joydb9md_1[4:0]} : joy1_USB;
+wire [15:0] joy2 =  status[31]    ? {joydb9md_2[9],joydb9md_2[7],joydb9md_2[8],joydb9md_2[4:0]} : status[30] ? joy1_USB : joy2_USB;
 
 reg [15:0] joydb9md_1,joydb9md_2;
 joy_db9md joy_db9md
 (
-  .clk       ( clk_sys    ), //35-50MHz
+  .clk       ( clk_sys    ), //40-50MHz
   .joy_split ( joy_split  ),
   .joy_mdsel ( joy_mdsel  ),
   .joy_in    ( joy_in     ),
@@ -242,7 +242,7 @@ JoyZ_Bk             |        |                |    x    |               |   x   
 reg JoyW_Fw,JoyW_Bk,JoyX_Fw,JoyX_Bk;
 reg JoyY_Fw,JoyY_Bk,JoyZ_Fw,JoyZ_Bk;
 always @(posedge clk_sys) begin 
-	case ({btn_up,m_down,m_left,m_right}) // Up,down,Left,Right
+	case ({m_up,m_down,m_left,m_right}) // Up,down,Left,Right
 		4'b1010: begin JoyW_Fw=0; JoyW_Bk=0; JoyX_Fw=1; JoyX_Bk=0; end //Up_Left
 		4'b1000: begin JoyW_Fw=1; JoyW_Bk=0; JoyX_Fw=1; JoyX_Bk=0; end //Up
 		4'b1001: begin JoyW_Fw=1; JoyW_Bk=0; JoyX_Fw=0; JoyX_Bk=0; end //Up_Right
@@ -298,10 +298,10 @@ ultra_tank ultra_tank(
 	.Audio1_O(audio1),
 	.Audio2_O(audio2),
 	
-	.Coin1_I(~(m_coin|btn_coin_1)),
-	.Coin2_I(~(m_coin|btn_coin_2)),
-	.Start1_I(~(m_start1|btn_start_1)),
-	.Start2_I(~(m_start2|btn_start_2)),
+	.Coin1_I(~(m_coin)),
+	.Coin2_I(~(m_coin)),
+	.Start1_I(~(m_start)),
+	.Start2_I(~(m_start_2)),
 	.Invisible_I(~status[14]),
 	.Rebound_I(~status[15]),
 	.Barrier_I(~status[16]),

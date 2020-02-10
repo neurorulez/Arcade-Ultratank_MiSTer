@@ -79,8 +79,8 @@ end
 
 	end
 	
-
-//----HNLS DCBAUDLR
+//   11 1098 7654 3210   
+//----M  XYZ SACB RLDU
 	
 assign joystick1 = ~joyMDdat1;
 assign joystick2 = ~joyMDdat2;
