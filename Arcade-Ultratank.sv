@@ -178,7 +178,9 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3) )) hps_io
 	.ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_data),
-	
+
+	.joy_raw(joydb_1[5:0]),	
+
 	.joystick_0(joy1_USB),
 	.joystick_1(joy2_USB),
 	.ps2_key(ps2_key)
