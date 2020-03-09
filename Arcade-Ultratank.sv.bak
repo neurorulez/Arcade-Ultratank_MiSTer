@@ -69,20 +69,18 @@ module emu
 	// 1 - D-/TX
 	// 2..6 - USR2..USR6
 	// Set USER_OUT to 1 to read from USER_IN.
-	output        USER_OSD,	
-   output  [1:0] USER_MODE,	
+    output	      USER_MODE,	
 	input   [7:0] USER_IN,
 	output  [7:0] USER_OUT
 );
 
 assign VGA_F1    = 0;
 
-wire         CLK_JOY = clk_sys;         //Assign clock between 40-50Mhz
-wire   [2:0] JOY_FLAG  = status[31:29]; //Assign 3 bits of status (31:29) o (63:61)
-wire         JOY_CLK, JOY_LOAD, JOY_SPLIT, JOY_MDSEL;
-wire   [5:0] JOY_MDIN  = JOY_FLAG[2] ? {USER_IN[6],USER_IN[3],USER_IN[5],USER_IN[7],USER_IN[1],USER_IN[2]} : '1;
-assign       USER_OUT  = JOY_FLAG[2] ? {3'b111,JOY_SPLIT,3'b111,JOY_MDSEL} : JOY_FLAG[1] ? {5'b11111,JOY_CLK,JOY_LOAD} : '1;
-assign       USER_MODE = JOY_FLAG[2:1] ;
+wire   CLK_JOY = clk_sys; //Assign clock between 40-50Mhz
+wire   JOY_CLK, JOY_LOAD, JOY_SPLIT, JOY_MDSEL;
+wire   [5:0] JOY_MDIN  = status[31] ? {USER_IN[6],USER_IN[3],USER_IN[5],USER_IN[7],USER_IN[1],USER_IN[2]} : '1;
+assign       USER_OUT  = status[31] ? {3'b111,JOY_SPLIT,3'b111,JOY_MDSEL} : status[30] ? {5'b11111,JOY_CLK,JOY_LOAD} : '1;
+assign       USER_MODE = status[31:30] ;
 assign       USER_OSD  = joydb_1[10] & joydb_1[6];
 
 
@@ -133,10 +131,10 @@ wire [15:0] joy1_USB, joy2_USB;
 wire [15:0] joy1 = joydb_1ena ? {joydb_1[11],joydb_1[9],joydb_1[10],joydb_1[4:0]} : joy1_USB;
 wire [15:0] joy2 = joydb_2ena ? {joydb_2[11],joydb_2[10],joydb_2[9],joydb_2[4:0]} : joydb_1ena ? joy1_USB : joy2_USB;
 
-wire [15:0] joydb_1 = JOY_FLAG[2] ? {JOYDB9MD_1[11],JOYDB9MD_1[10] | (JOYDB9MD_1[11] & JOYDB9MD_1[5]),JOYDB9MD_1[9:0]} : JOY_FLAG[1] ? JOYDB15_1 : '0;
-wire [15:0] joydb_2 = JOY_FLAG[2] ? {JOYDB9MD_2[11],JOYDB9MD_2[10] | (JOYDB9MD_2[11] & JOYDB9MD_2[5]),JOYDB9MD_2[9:0]} : JOY_FLAG[1] ? JOYDB15_2 : '0;
-wire        joydb_1ena = |JOY_FLAG[2:1];
-wire        joydb_2ena = |JOY_FLAG[2:1] & JOY_FLAG[0];
+wire [15:0] joydb_1 = status[31] ? {JOYDB9MD_1[11],JOYDB9MD_1[10] | (JOYDB9MD_1[11] & JOYDB9MD_1[5]),JOYDB9MD_1[9:0]} : status[30] ? JOYDB15_1 : '0;
+wire [15:0] joydb_2 = status[31] ? {JOYDB9MD_2[11],JOYDB9MD_2[10] | (JOYDB9MD_2[11] & JOYDB9MD_2[5]),JOYDB9MD_2[9:0]} : status[30] ? JOYDB15_2 : '0;
+wire        joydb_1ena = |status[31:30] & ~status[29];
+wire        joydb_2ena = |status[31:30] &  status[29];
 
 reg [15:0] JOYDB9MD_1,JOYDB9MD_2;
 joy_db9md joy_db9md
