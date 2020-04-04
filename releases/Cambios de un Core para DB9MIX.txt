@@ -1,0 +1,174 @@
+﻿Pasos para implementar DB9MIX
+1.- Clonar repo...
+2.- Crear branch Joy_DB9MIX
+3.- Copiar fichero joydb9md.v y joydb15.v a donde esten los fuentes
+4.- Modificar el fichero files.qip y añadir la linea (cambiando ruta segun sea):
+set_global_assignment -name VERILOG_FILE src/joydb9md.v
+set_global_assignment -name VERILOG_FILE src/joydb15.v
+
+5.- Editar el fichero sys/sys.tcl y hacer los siguientes cambios:
+>Añadir la linea USER_IO[7] en USER_PORT
+#============================================================
+# USER PORT
+#============================================================
+set_location_assignment PIN_AE15 -to USER_IO[7]
+>Comentar la linea de SD_SPI_CS
+#============================================================
+# SPI SD
+#============================================================
+#set_location_assignment PIN_AE15 -to SD_SPI_CS
+
+6.- Editar el fichero sys/hps_io.v
+>Añadir la linea de joy_raw
+	output reg [15:0] joystick_analog_5,
+	input      [15:0] joy_raw,
+
+>Añadir en el cmd la asignacion de joy_raw
+				case(cmd)
+					 // Reading user_io raw joy
+					'h0f: io_dout <= joy_raw;
+					// buttons and switches
+					'h01: cfg <= io_din;
+
+6.- Editar el fichero sys/sys_top.v
+>Comentar la linea de SD_SPI_CS en los sitios que aparece
+	////////// I/O ALT /////////
+	//output        SD_SPI_CS,
+
+`ifndef DUAL_SDRAM
+	assign SDIO_DAT[2:1]= 2'bZZ;
+	assign SDIO_DAT[3]  = SW[3] ? 1'bZ  : SD_CS;
+	assign SDIO_CLK     = SW[3] ? 1'bZ  : SD_CLK;
+	assign SDIO_CMD     = SW[3] ? 1'bZ  : SD_MOSI;
+//	assign SD_SPI_CS    = mcp_sdcd ? ((~VGA_EN & sog & ~cs1) ? 1'b1 : 1'bZ) : SD_CS;
+`else
+//	assign SD_SPI_CS    = mcp_sdcd ? 1'bZ : SD_CS;
+`endif
+>Aumentar a 7 el USER_IO en la deficion y asignacion. Crear la variante user_mode y meterla en la definicion de emu.
+	///////// USER IO ///////////
+	inout   [7:0] USER_IO
+
+>añadir la señal de boton del OSD
+	deb_osd <= {deb_osd[6:0], btn_o | user_osd | ~KEY[0]};
+	if(&deb_osd) btn_osd <= 1;
+	if(!deb_osd) btn_osd <= 0;
+
+>cambiar asignaciones de USER_IO
+////////////////  User I/O (USB 3.0 connector) /////////////////////////
+
+assign USER_IO[0] = |user_mode   ? user_out[0] : !user_out[0]  ? 1'b0 : 1'bZ;
+assign USER_IO[1] = user_mode[0] ? user_out[1] : !user_out[1]  ? 1'b0 : 1'bZ;
+assign USER_IO[2] = !(SW[1] ? HDMI_I2S   : user_out[2]) ? 1'b0 : 1'bZ;
+assign USER_IO[3] =                       !user_out[3]  ? 1'b0 : 1'bZ;
+assign USER_IO[4] = user_mode[1] ? user_out[4] : !(SW[1] ? HDMI_SCLK  : user_out[4]) ? 1'b0 : 1'bZ;
+assign USER_IO[5] = !(SW[1] ? HDMI_LRCLK : user_out[5]) ? 1'b0 : 1'bZ;
+assign USER_IO[6] =                       !user_out[6]  ? 1'b0 : 1'bZ;
+assign USER_IO[7] =                       !user_out[7]  ? 1'b0 : 1'bZ;
+
+assign user_in[0] = |user_mode   ? 1'b0 : USER_IO[0];
+assign user_in[1] = user_mode[0] ? 1'b0 : USER_IO[1];
+assign user_in[2] = SW[1] | USER_IO[2];
+assign user_in[3] =         USER_IO[3];
+assign user_in[4] = user_mode[1] ? 1'b0 : SW[1] | USER_IO[4];
+assign user_in[5] = SW[1] | USER_IO[5];
+assign user_in[6] =         USER_IO[6];
+assign user_in[7] =         USER_IO[7];
+
+..
+
+wire  [7:0] user_out, user_in;
+wire  [1:0] user_mode;
+wire        user_osd;
+
+..
+
+	.USER_OSD(user_osd),
+	.USER_MODE(user_mode),
+	.USER_OUT(user_out),
+	.USER_IN(user_in)
+);
+
+endmodule
+	
+7. Editar el fichero "emu" que estara en el raiz con nombre del core .sv
+>Crear la señal user_mode y aumentar el tamaño de user_*
+    // Open-drain User port.
+    // 0 - D+/RX
+    // 1 - D-/TX
+    // 2..6 - USR2..USR6
+    // Set USER_OUT to 1 to read from USER_IN.
+	output        USER_OSD,	
+	output  [1:0] USER_MODE,	
+	input   [7:0] USER_IN,
+	output  [7:0] USER_OUT,
+>Crear nuestras variables de control y quitar la asignacion "assign USER_OUT  = '1;	"
+);
+assign VGA_F1    = 0;
+
+wire         CLK_JOY = CLK_50M;         //Assign clock between 40-50Mhz
+wire   [2:0] JOY_FLAG  = status[31:29]; //Assign 3 bits of status (31:29) o (63:61)
+wire         JOY_CLK, JOY_LOAD, JOY_SPLIT, JOY_MDSEL;
+wire   [5:0] JOY_MDIN  = JOY_FLAG[2] ? {USER_IN[6],USER_IN[3],USER_IN[5],USER_IN[7],USER_IN[1],USER_IN[2]} : '1;
+wire         JOY_DATA  = JOY_FLAG[1] ? USER_IN[5] : '1;
+assign       USER_OUT  = JOY_FLAG[2] ? {3'b111,JOY_SPLIT,3'b111,JOY_MDSEL} : JOY_FLAG[1] ? {6'b111111,JOY_CLK,JOY_LOAD} : '1;
+assign       USER_MODE = JOY_FLAG[2:1] ;
+assign       USER_OSD  = joydb_1[10] & joydb_1[6];
+
+assign LED_USER  = ioctl_download;
+
+>Crear la entrada del menu (Uso UV porque son 31:29 las dos ultimas de la O mayuscula)
+ Si estuviera ocupadas habria que cambiarlas por otras
+ (en el Menu)[para status[31:29] "OUV"] [Para status[63:61] poner "oUV" y "oT" (minuscula)]
+"OUV,UserIO Joystick,Off,DB15,DB9;",
+"OT,UserIO Players,1 Player,2 Players;",
+
+>Ir al la definicion de los Joysticks y cambiar el nombre por *_USB en la def y en la llamada de HPS_IO
+>y añadir la señal joy_raw
+wire [15:0] joy1_USB, joy2_USB;
+
+hps_io #(.STRLEN(($size(CONF_STR)>>3) )) hps_io
+(
+...	
+	.joy_raw(joydb_1[5:0]),
+	
+	.joystick_0(joy1_USB),
+	.joystick_1(joy2_USB),
+...
+);
+
+> Meter nuestro modulo justo antes de hps_io y Crear unos nuevos Wires con el nombre que tenia (sin el _USB) para hacer el intercambio con nuestro sistema
+ (en la asignacion)[para "OUV"]
+wire [31:0] joy1 = joydb_1ena ? {joydb_1[11],joydb_1[9],joydb_1[10],joydb_1[4:0]} : joy1_USB;
+wire [31:0] joy2 = joydb_2ena ? {joydb_2[11],joydb_2[10],joydb_2[9],joydb_2[4:0]} : joydb_1ena ? joy1_USB : joy2_USB;
+wire [31:0] joy3 = joydb_2ena ? joy1_USB : joydb_1ena ? joy2_USB : joy3_USB;
+wire [31:0] joy4 = joydb_2ena ? joy2_USB : joydb_1ena ? joy3_USB : joy4_USB;
+
+wire [15:0] joydb_1 = JOY_FLAG[2] ? {JOYDB9MD_1[11],JOYDB9MD_1[10] | (JOYDB9MD_1[11] & JOYDB9MD_1[5]),JOYDB9MD_1[9:0]} : JOY_FLAG[1] ? JOYDB15_1 : '0;
+wire [15:0] joydb_2 = JOY_FLAG[2] ? {JOYDB9MD_2[11],JOYDB9MD_2[10] | (JOYDB9MD_2[11] & JOYDB9MD_2[5]),JOYDB9MD_2[9:0]} : JOY_FLAG[1] ? JOYDB15_2 : '0;
+wire        joydb_1ena = |JOY_FLAG[2:1]              ;
+wire        joydb_2ena = |JOY_FLAG[2:1] & JOY_FLAG[0];
+
+//----BA 9876543210
+//----LS FEDCBAUDLR
+reg [15:0] JOYDB9MD_1,JOYDB9MD_2;
+joy_db9md joy_db9md
+(
+  .clk       ( CLK_JOY    ), //40-50MHz
+  .joy_split ( JOY_SPLIT  ),
+  .joy_mdsel ( JOY_MDSEL  ),
+  .joy_in    ( JOY_MDIN   ),
+  .joystick1 ( JOYDB9MD_1 ),
+  .joystick2 ( JOYDB9MD_2 )	  
+);
+
+reg [15:0] JOYDB15_1,JOYDB15_2;
+joy_db15 joy_db15
+(
+  .clk       ( CLK_JOY   ), //48MHz
+  .JOY_CLK   ( JOY_CLK   ),
+  .JOY_DATA  ( JOY_DATA  ),
+  .JOY_LOAD  ( JOY_LOAD  ),
+  .joystick1 ( JOYDB15_1 ),
+  .joystick2 ( JOYDB15_2 )	  
+);
+
